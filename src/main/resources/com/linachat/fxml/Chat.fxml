@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Vue principale: les fx:id sont injectes dans ChatController.
+     Le BorderPane preserve une liste de contacts a gauche et la conversation au centre. -->
+<?import javafx.geometry.Insets?><?import javafx.scene.control.*?><?import javafx.scene.image.ImageView?><?import javafx.scene.layout.*?>
+<BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.linachat.controller.ChatController" styleClass="app">
+    <left>
+        <VBox prefWidth="310" styleClass="sidebar">
+            <padding><Insets top="16" right="14" bottom="14" left="14"/></padding>
+            <HBox alignment="CENTER_LEFT" spacing="10" styleClass="profile-header">
+                <ImageView fx:id="profileAvatar" fitWidth="36" fitHeight="36" preserveRatio="true"/>
+                <VBox HBox.hgrow="ALWAYS">
+                    <Label fx:id="profileNameLabel" text="Profil" styleClass="profile-name"/>
+                    <Label fx:id="profileStatusLabel" text="Disponible" styleClass="profile-status"/>
+                </VBox>
+                <Button text="⚙" onAction="#openSettings" styleClass="transparent-button"/>
+            </HBox>
+            <TextField promptText="Rechercher un contact..." styleClass="search"/>
+            <Label text="CONTACTS" styleClass="section-label"/>
+            <ListView fx:id="usersList" VBox.vgrow="ALWAYS"/>
+            <Label fx:id="statusLabel" text="Connecté" styleClass="sidebar-status"/>
+        </VBox>
+    </left>
+    <center>
+        <BorderPane>
+            <top>
+                <HBox alignment="CENTER_LEFT" spacing="12" styleClass="chat-header">
+                    <ImageView fx:id="contactAvatar" fitWidth="34" fitHeight="34" preserveRatio="true"/>
+                    <Label fx:id="contactLabel" text="Sélectionnez un contact" styleClass="contact-name"/>
+                </HBox>
+            </top>
+            <center>
+                <ScrollPane fx:id="messageScroll" fitToWidth="true" styleClass="conversation-scroll">
+                    <content>
+                        <VBox fx:id="messagesBox" spacing="8" styleClass="messages">
+                            <padding><Insets top="18" right="22" bottom="18" left="22"/></padding>
+                        </VBox>
+                    </content>
+                </ScrollPane>
+            </center>
+            <bottom>
+                <HBox spacing="8" styleClass="composer">
+                    <Button text="+" onAction="#attach" styleClass="icon-button"/>
+                    <TextField fx:id="messageField" promptText="Écrire un message..." onAction="#send" HBox.hgrow="ALWAYS"/>
+                    <Button text="Envoyer" onAction="#send" styleClass="primary-button"/>
+                </HBox>
+            </bottom>
+        </BorderPane>
+    </center>
+</BorderPane>

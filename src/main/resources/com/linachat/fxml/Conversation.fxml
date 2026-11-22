@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Vue secondaire de conversation, preservee pour une reutilisation future. -->
+<?import javafx.scene.control.*?><?import javafx.scene.layout.*?>
+<VBox xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.linachat.controller.ConversationController" spacing="10" styleClass="messages"><ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS"><content><VBox spacing="8"/></content></ScrollPane><HBox spacing="8"><TextField HBox.hgrow="ALWAYS" promptText="Message..."/><Button text="Envoyer" styleClass="primary-button"/></HBox></VBox>

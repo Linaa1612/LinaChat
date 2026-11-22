@@ -8,7 +8,6 @@
 - User profile creation and contact management.
 - Image sharing with direct image display.
 - File attachments and audio messages.
-- AI-powered assistant integration.
 - Responsive and user-friendly JavaFX interface.
 
 ## Technologies
@@ -18,7 +17,6 @@
 - **UI Design:** Scene Builder
 - **Communication:** TCP Sockets
 - **Concurrency:** Multithreading and ExecutorService
-- **AI Integration:** HTTP API
 - **Build Tool:** Maven
 - **Version Control:** Git and GitHub
 

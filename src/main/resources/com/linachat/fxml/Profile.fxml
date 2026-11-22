@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Vue de profil reutilisable: les champs restent independants du socket TCP. -->
+<?import javafx.geometry.Insets?><?import javafx.scene.control.*?><?import javafx.scene.layout.*?>
+<VBox xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.linachat.controller.ProfileController" alignment="CENTER" spacing="14" styleClass="card"><padding><Insets top="30" right="40" bottom="30" left="40"/></padding><Label text="●" styleClass="profile-avatar"/><Label text="Mon profil" styleClass="title"/><TextField promptText="Nom d'utilisateur"/><TextField promptText="Statut"/><Button text="Enregistrer" styleClass="primary-button"/></VBox>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Ecran de connexion: @FXML lie les champs ci-dessous au LoginController. -->
+<?import javafx.geometry.Insets?><?import javafx.scene.control.*?><?import javafx.scene.layout.*?>
+<StackPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.linachat.controller.LoginController" styleClass="login-page">
+    <VBox maxWidth="390" spacing="16" alignment="CENTER" styleClass="card">
+        <padding><Insets top="36" right="40" bottom="36" left="40"/></padding>
+        <Label text="LinaChat" styleClass="brand"/>
+        <Label text="Messagerie simple, rapide et privée" styleClass="subtitle"/>
+        <Separator/>
+        <Label text="Créer mon profil" styleClass="title"/>
+        <TextField fx:id="usernameField" promptText="Nom d'utilisateur"/>
+        <Button text="Choisir une photo de profil" onAction="#chooseAvatar" maxWidth="Infinity"
+                styleClass="secondary-button"/>
+        <Button fx:id="connectButton" text="Se connecter" onAction="#connect"
+                maxWidth="Infinity" styleClass="primary-button"/>
+        <Label fx:id="statusLabel" wrapText="true" styleClass="error-label"/>
+    </VBox>
+</StackPane>

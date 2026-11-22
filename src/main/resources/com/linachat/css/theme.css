@@ -1,0 +1,20 @@
+/* Theme commun charge par chaque Scene JavaFX. */
+.root { -fx-font-family: "Segoe UI"; -fx-background-color: #f0f2f5; -fx-text-fill: #202c33; }
+
+/* Pages de connexion et cartes centrales. */
+.app { -fx-background-color: #f0f2f5; }
+.login-page { -fx-background-color: linear-gradient(to bottom right, #075e54, #128c7e); }
+.card { -fx-background-color: white; -fx-background-radius: 14; -fx-effect: dropshadow(gaussian, #00000030, 18, .2, 0, 5); }
+.brand { -fx-text-fill: #075e54; -fx-font-size: 34px; -fx-font-weight: bold; }.brand-small { -fx-text-fill: white; -fx-font-size: 25px; -fx-font-weight: bold; }
+.subtitle,.muted { -fx-text-fill: #667781; }.title { -fx-font-size: 22px; -fx-font-weight: bold; }.section-label { -fx-text-fill: #8696a0; -fx-font-size: 11px; -fx-font-weight: bold; }
+
+/* Barre latérale des profils et des contacts. */
+.sidebar { -fx-background-color: #075e54; }.sidebar .list-view { -fx-background-color: transparent; }.sidebar .list-cell { -fx-background-color: transparent; -fx-text-fill: white; -fx-padding: 12px 8px; }.sidebar .list-cell:hover,.sidebar .list-cell:selected { -fx-background-color: #128c7e; }
+.profile-header { -fx-padding: 8px 4px 16px 4px; }.profile-name { -fx-text-fill: white; -fx-font-size: 15px; -fx-font-weight: bold; }.profile-status,.sidebar-status { -fx-text-fill: #d7eee9; -fx-font-size: 11px; }.profile-avatar-small { -fx-text-fill: #dcf8c6; -fx-font-size: 27px; }.transparent-button { -fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 17px; }
+.search,.composer,.chat-header { -fx-background-color: white; }.search { -fx-background-radius: 18; }.chat-header { -fx-padding: 14px 20px; -fx-border-color: #e5e9eb; -fx-border-width: 0 0 1px 0; }.contact-name { -fx-font-size: 17px; -fx-font-weight: bold; }
+
+/* Conversation et bulles de message texte, image ou fichier. */
+.messages { -fx-background-color: #efeae2; }.composer { -fx-padding: 12px; }.composer .text-field { -fx-background-radius: 20; }
+.primary-button { -fx-background-color: #128c7e; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 20; -fx-padding: 10px 18px; }.primary-button:hover { -fx-background-color: #075e54; }.icon-button { -fx-background-color: #f0f2f5; -fx-background-radius: 20; }
+.secondary-button { -fx-background-color: #e7f3f0; -fx-text-fill: #075e54; -fx-background-radius: 20; -fx-padding: 9px 14px; }.secondary-button:hover { -fx-background-color: #d0e9e3; }
+.message-in,.message-out { -fx-padding: 10px 13px; -fx-background-radius: 10; -fx-max-width: 520px; }.message-in { -fx-background-color: white; }.message-out { -fx-background-color: #dcf8c6; -fx-alignment: center-right; }.error-label { -fx-text-fill: #b3261e; }.avatar,.profile-avatar { -fx-text-fill: #128c7e; -fx-font-size: 28px; }.profile-avatar { -fx-font-size: 70px; }
