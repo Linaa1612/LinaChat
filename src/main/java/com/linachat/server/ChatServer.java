@@ -7,6 +7,7 @@ import com.linachat.network.JsonCodec;
 
 import java.io.*;
 import java.net.*;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -109,6 +110,7 @@ public final class ChatServer implements AutoCloseable {
             if (!message.sender().equals(from.userId) || !profiles.containsKey(message.recipient())
                     || message.fileSize() < 0 || message.fileSize() > 15L * 1024 * 1024
                     || ("IMAGE".equals(type) && !validImage(message))
+                    || ("FILE".equals(type) && !validFile(message))
                     || ("AUDIO".equals(type) && !validAudio(message))) {
                 //Si le message n'est pas valide, le serveur envoie une erreur à l'expéditeur
                 send(from, Map.of("type", "ERROR", "message",
@@ -140,6 +142,22 @@ public final class ChatServer implements AutoCloseable {
             catch (IllegalArgumentException | IOException e) {
                 return false;
             }
+    }
+
+    private boolean validFile(Message message) {
+        // Vérifie les données réelles d'une pièce jointe avant l'historisation et le routage.
+        // Hna kanshahado que name, taille et Base64 correspondou, bach le destinataire
+        // ne recoive jamais une carte d'un fichier incomplet ou corrompu.
+        try {
+            if (message.contentBase64() == null || message.fileName() == null
+                    || message.fileName().isBlank()) return false;
+            String safeName = Paths.get(message.fileName()).getFileName().toString();
+            if (safeName.isBlank() || safeName.contains("\n") || safeName.contains("\r")) return false;
+            byte[] data = Base64.getDecoder().decode(message.contentBase64());
+            return data.length == message.fileSize();
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     private boolean validAudio(Message message) {

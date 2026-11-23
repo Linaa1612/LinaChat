@@ -75,12 +75,19 @@ public final class ChatController {
     private long previewDurationMillis;
     private long recordingStartedNanos;
     private Popup emojiPopup;
+    private Path temporaryAttachmentDirectory;
 
     // Cette methode est appelee apres le chargement du FXML. Elle relie le client TCP
     // aux callbacks JavaFX et initialise l'affichage du profil et des contacts.
     public void initializeClient(ChatClient chatClient) {
         client = chatClient;
         buildEmojiPicker();
+        try {
+            temporaryAttachmentDirectory = Files.createDirectories(
+                    Paths.get(System.getProperty("java.io.tmpdir"), "LinaChat", "attachments"));
+        } catch (IOException e) {
+            statusLabel.setText("Impossible de préparer le dossier temporaire des pièces jointes.");
+        }
         User me = client.user();
         profileNameLabel.setText(me.name());
         profileStatusLabel.setText(me.status().isBlank() ? "Disponible" : me.status());
@@ -305,15 +312,20 @@ public final class ChatController {
                 renderMessage(message);
             })).exceptionally(error -> { Platform.runLater(() -> statusLabel.setText(imageError(error))); return null; });
         } else {
-            try {
-                Message message = client.sendFile(recipient, file);
+            client.sendFileAsync(recipient, file).thenAccept(message -> Platform.runLater(() -> {
                 conversations.computeIfAbsent(recipient, ignored -> new ArrayList<>()).add(message);
                 lastMessages.put(recipient, message);
                 usersList.refresh();
                 renderMessage(message);
                 statusLabel.setText("Fichier envoyé.");
-            }
-            catch (Exception e) { statusLabel.setText("Impossible d'envoyer le fichier."); }
+            })).exceptionally(error -> {
+                Platform.runLater(() -> {
+                    Throwable cause = error.getCause() == null ? error : error.getCause();
+                    statusLabel.setText(cause.getMessage() == null
+                            ? "Impossible d'envoyer le fichier." : cause.getMessage());
+                });
+                return null;
+            });
         }
     }
 
@@ -565,16 +577,21 @@ public final class ChatController {
 
     /**
      * Affiche les fichiers recus sous forme de carte, puis sauvegarde les octets localement.
-     * Hna kan7afdo le binaire reçu dans storage/files bach l'utilisateur ydir open/download.
+     * Hna kan7afdo le binaire reçu dans un dossier temporaire système
+     * bach l'utilisateur ydir open/download sans ajouter le fichier au projet.
      */
     private javafx.scene.Node fileBubble(Message message) {
         try {
             byte[] bytes = Base64.getDecoder().decode(message.contentBase64());
             if (bytes.length != message.fileSize()) throw new IOException("Taille du fichier reçue incorrecte.");
-            Path folder = Paths.get("storage", "files");
-            Files.createDirectories(folder);
+            if (temporaryAttachmentDirectory == null) {
+                temporaryAttachmentDirectory = Files.createDirectories(
+                        Paths.get(System.getProperty("java.io.tmpdir"), "LinaChat", "attachments"));
+            }
             String safeName = Paths.get(message.fileName()).getFileName().toString();
-            Path filePath = folder.resolve(message.id() + "-" + safeName);
+            // Stockage hors du projet dans le dossier temporaire du système d'exploitation.
+            // Hna le fichier reste associé au message, pas ajoute aux ressources Java du projet.
+            Path filePath = temporaryAttachmentDirectory.resolve(message.id() + "-" + safeName);
             Files.write(filePath, bytes);
 
             String lower = safeName.toLowerCase(Locale.ROOT);
@@ -732,6 +749,14 @@ public final class ChatController {
         audioPlayers.clear();
         audioRecorder.close();
         audioExecutor.shutdownNow();
+        if (temporaryAttachmentDirectory != null) {
+            try (java.util.stream.Stream<Path> paths = Files.walk(temporaryAttachmentDirectory)) {
+                paths.sorted(java.util.Comparator.reverseOrder())
+                        .forEach(path -> {
+                            try { Files.deleteIfExists(path); } catch (IOException ignored) { }
+                        });
+            } catch (IOException ignored) { }
+        }
     }
     // Les actions JavaFX doivent rester sur le thread graphique. Ici, le bouton ouvre
     // seulement les parametres locaux du profil et informe l'utilisateur sans blocage.

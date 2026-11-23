@@ -1,15 +1,19 @@
 package com.linachat;
 
 import com.linachat.client.ChatClient;
+import com.linachat.model.Message;
 import com.linachat.model.User;
 import com.linachat.server.ChatServer;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import javax.imageio.ImageIO;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -62,6 +66,45 @@ class ChatIntegrationTest {
             Files.write(audio, new byte[]{82,73,70,70,36,0,0,0,87,65,86,69});
             alice.sendFile(bobProfile.id(), audio.toFile());
             assertTrue(audioReceived.await(3, TimeUnit.SECONDS));
+
+            // Test binaire PDF: le destinataire doit reconstruire exactement les memes octets.
+            AtomicReference<byte[]> receivedPdf = new AtomicReference<>();
+            CountDownLatch pdfReceived = new CountDownLatch(1);
+            bob.onMessage(message -> {
+                if ("rapport.pdf".equals(message.fileName()) && "FILE".equals(message.type())) {
+                    receivedPdf.set(java.util.Base64.getDecoder().decode(message.contentBase64()));
+                    pdfReceived.countDown();
+                }
+            });
+            Path pdf = Files.createTempDirectory("linachat").resolve("rapport.pdf");
+            byte[] pdfBytes = "%PDF-1.7\n1 0 obj\n<<>>\nendobj\n%%EOF\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+            Files.write(pdf, pdfBytes);
+            Message pdfMessage = alice.sendFile(bobProfile.id(), pdf.toFile());
+            assertTrue(pdfReceived.await(3, TimeUnit.SECONDS));
+            assertArrayEquals(pdfBytes, receivedPdf.get());
+            assertEquals(pdfBytes.length, pdfMessage.fileSize());
+
+            // Word et Excel utilisent aussi le binaire FILE, sans validation liée à une extension.
+            CountDownLatch officeReceived = new CountDownLatch(2);
+            bob.onMessage(message -> {
+                if ("rapport.docx".equals(message.fileName()) || "budget.xlsx".equals(message.fileName())) {
+                    officeReceived.countDown();
+                }
+            });
+            Path docx = Files.createTempDirectory("linachat").resolve("rapport.docx");
+            byte[] docxBytes = "DOCX test binaire".getBytes(StandardCharsets.UTF_8);
+            Files.write(docx, docxBytes);
+            alice.sendFile(bobProfile.id(), docx.toFile());
+
+            Path xlsx = Files.createTempDirectory("linachat").resolve("budget.xlsx");
+            byte[] xlsxBytes = "XLSX test binaire".getBytes(StandardCharsets.UTF_8);
+            Files.write(xlsx, xlsxBytes);
+            alice.sendFile(bobProfile.id(), xlsx.toFile());
+            assertTrue(officeReceived.await(3, TimeUnit.SECONDS));
+
+            // Un fichier invalide ne doit jamais entrer dans la queue TCP.
+            Path missing = Files.createTempDirectory("linachat").resolve("introuvable.pdf");
+            assertThrows(IOException.class, () -> alice.sendFile(bobProfile.id(), missing.toFile()));
 
             // Vérification du protocole vocal: données WAV, taille, destinataire et durée.
             CountDownLatch voiceReceived = new CountDownLatch(1);

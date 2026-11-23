@@ -101,6 +101,20 @@ public final class ChatClient implements AutoCloseable {
         return message;
     }
 
+    /**
+     * Version asynchrone du transfert: lecture hors du JavaFX Application Thread.
+     * Hna kansnatio le resultat avant kanzido message f conversation.
+     */
+    public CompletableFuture<Message> sendFileAsync(String recipientId, File file) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return sendFile(recipientId, file);
+            } catch (Exception e) {
+                throw new CompletionException(e);
+            }
+        }, transfers);
+    }
+
     public CompletableFuture<Message> sendImage(String recipientId, File file) {
         // La validation locale limite la taille et le format avant l'encodage Base64.
         return CompletableFuture.supplyAsync(() -> {
