@@ -11,7 +11,14 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpTimeoutException;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Client HTTPS de l'API REST Google Gemini.
@@ -23,18 +30,36 @@ public final class GeminiClient {
     private final HttpClient http;
     private final String apiKey;
     private final String model;
-    private final String fallbackModel;
+    private final List<String> fallbackModels;
     private final Duration timeout;
+    private final Map<String, Instant> quotaExhaustedUntil = new ConcurrentHashMap<>();
+    private final Map<String, Boolean> modelAvailability = new ConcurrentHashMap<>();
+    private static final Set<String> FREE_TIER_MODELS = Set.of(
+            "gemini-3.5-flash-lite",
+            "gemini-3.5-flash",
+            "gemini-3.1-flash-lite",
+            "gemini-3-flash-preview",
+            "gemini-flash-lite-latest",
+            "gemini-flash-latest");
 
     public GeminiClient() {
         String configuredKey = System.getenv("GEMINI_API_KEY");
         this.apiKey = configuredKey == null ? null : configuredKey.trim();
         String configuredModel = System.getenv().getOrDefault("GEMINI_MODEL", "gemini-3.8-flash").trim();
         this.model = configuredModel.isBlank() ? "gemini-3.8-flash" : configuredModel;
-        String configuredFallback =
-                System.getenv().getOrDefault("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash-lite").trim();
-        this.fallbackModel =
-                configuredFallback.isBlank() ? "gemini-3.5-flash-lite" : configuredFallback;
+        String configuredFallbacks = System.getenv().getOrDefault(
+                "GEMINI_FALLBACK_MODELS",
+                "gemini-3.5-flash-lite,gemini-3.5-flash,gemini-3.1-flash-lite,gemini-3-flash-preview");
+        LinkedHashSet<String> alternatives = new LinkedHashSet<>();
+        for (String candidate : configuredFallbacks.split(",")) {
+            String normalized = candidate.trim().toLowerCase(Locale.ROOT);
+            if (!normalized.isBlank()
+                    && FREE_TIER_MODELS.contains(normalized)
+                    && !normalized.equals(this.model)) {
+                alternatives.add(normalized);
+            }
+        }
+        this.fallbackModels = new ArrayList<>(alternatives);
         this.timeout = Duration.ofSeconds(parsePositive("GEMINI_TIMEOUT_SECONDS", 60));
         this.http = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(15))
@@ -78,22 +103,106 @@ public final class GeminiClient {
         ObjectNode generationConfig = body.putObject("generationConfig");
         generationConfig.put("temperature", 0.7);
 
+        GeminiException primaryQuotaBlock = quotaBlock(model);
+        if (primaryQuotaBlock != null) {
+            System.err.println("[Gemini] Blocage local du quota pour " + model);
+            return tryFallbackModels(body, primaryQuotaBlock);
+        }
+
         SendResult result = sendWithRetries(model, body);
         if (result.answer() != null) return result.answer();
 
         if (result.exception() != null
-                && (result.exception().status() == 503
+                && (result.exception().status() == 429
+                || result.exception().status() == 503
                 || result.exception().status() == 500
                 || result.exception().status() == 502
-                || result.exception().status() == 504)
-                && !fallbackModel.equals(model)) {
-            System.err.println("[Gemini] Modèle principal indisponible; utilisation du fallback "
-                    + fallbackModel + " (HTTP " + result.exception().status() + ")");
-            SendResult fallback = sendWithRetries(fallbackModel, body);
-            if (fallback.answer() != null) return fallback.answer();
-            throw fallback.exception();
+                || result.exception().status() == 504)) {
+            if (result.exception().status() == 429) {
+                markQuotaExhausted(model, result.exception());
+            }
+            System.err.println("[Gemini] Modèle principal indisponible; recherche d'un modèle Free Tier disponible "
+                    + "(HTTP " + result.exception().status() + ")");
+            return tryFallbackModels(body, result.exception());
         }
         throw result.exception();
+    }
+
+    private String tryFallbackModelsResult(ObjectNode body, GeminiException primaryError) throws Exception {
+        GeminiException lastError = primaryError;
+        for (String candidate : fallbackModels) {
+            GeminiException blocked = quotaBlock(candidate);
+            if (blocked != null) {
+                System.err.println("[Gemini] " + candidate + " ignoré: quota épuisé localement");
+                lastError = blocked;
+                continue;
+            }
+            if (!isAvailable(candidate)) {
+                System.err.println("[Gemini] " + candidate + " indisponible ou refusé par l'API");
+                continue;
+            }
+            SendResult fallback = sendWithRetries(candidate, body);
+            if (fallback.answer() != null) {
+                return fallback.answer();
+            }
+            lastError = fallback.exception();
+            if (lastError != null && lastError.status() == 429) {
+                markQuotaExhausted(candidate, lastError);
+            }
+        }
+        throw lastError;
+    }
+
+    private String tryFallbackModels(ObjectNode body, GeminiException primaryError) throws Exception {
+        return tryFallbackModelsResult(body, primaryError);
+    }
+
+    private boolean isAvailable(String selectedModel) {
+        Boolean cached = modelAvailability.get(selectedModel);
+        if (cached != null) return cached;
+        try {
+            HttpRequest request = HttpRequest.newBuilder(
+                            URI.create(GEMINI_ENDPOINT + selectedModel))
+                    .timeout(Duration.ofSeconds(15))
+                    .header("x-goog-api-key", apiKey)
+                    .GET()
+                    .build();
+            java.net.http.HttpResponse<String> response =
+                    http.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+            boolean available = response.statusCode() == 200;
+            modelAvailability.put(selectedModel, available);
+            if (!available) {
+                System.err.println("[Gemini] Modèle alternatif " + selectedModel
+                        + " non disponible via l'API (HTTP " + response.statusCode() + ")");
+            }
+            return available;
+        } catch (Exception e) {
+            System.err.println("[Gemini] Vérification du modèle " + selectedModel + " impossible");
+            modelAvailability.put(selectedModel, false);
+            return false;
+        }
+    }
+
+    private GeminiException quotaBlock(String selectedModel) {
+        Instant until = quotaExhaustedUntil.get(selectedModel);
+        if (until == null) return null;
+        Instant now = Instant.now();
+        if (until.isAfter(now)) {
+            long seconds = Duration.between(now, until).toSeconds();
+            String reset = formatDuration(Math.max(1, seconds));
+            return new GeminiException("QUOTA",
+                    "HTTP 429 RESOURCE_EXHAUSTED: quota épuisé pour " + selectedModel
+                            + ". Réinitialisation estimée dans " + reset + ".",
+                    429, Duration.ofSeconds(seconds).toMillis());
+        }
+        quotaExhaustedUntil.remove(selectedModel);
+        return null;
+    }
+
+    private void markQuotaExhausted(String selectedModel, GeminiException exception) {
+        long retryMillis = exception.retryAfterMillis();
+        if (retryMillis <= 0) retryMillis = 24L * 60L * 60L * 1000L;
+        quotaExhaustedUntil.put(selectedModel, Instant.now().plusMillis(retryMillis));
     }
 
     private SendResult sendWithRetries(String selectedModel, ObjectNode body) {
@@ -163,11 +272,18 @@ public final class GeminiClient {
     private GeminiException httpError(String selectedModel, int status, String responseBody) {
         String providerStatus = "";
         String providerMessage = "";
+        long retryAfterMillis = 0;
         try {
             JsonNode root = JsonCodec.MAPPER.readTree(responseBody);
             JsonNode error = root.path("error");
             providerStatus = error.path("status").asText("");
             providerMessage = error.path("message").asText("").trim();
+            for (JsonNode detail : error.path("details")) {
+                JsonNode retryDelay = detail.get("retryDelay");
+                if (retryDelay != null && retryDelay.isTextual()) {
+                    retryAfterMillis = parseRetryDelay(retryDelay.asText());
+                }
+            }
         } catch (Exception ignored) {
             providerMessage = responseBody == null ? "" : responseBody.trim();
         }
@@ -191,7 +307,11 @@ public final class GeminiClient {
             return new GeminiException("ACCESS_DENIED", message, status);
         }
         if (status == 429) {
-            return new GeminiException("QUOTA", message, status);
+            if (retryAfterMillis > 0) {
+                message += " Réinitialisation estimée dans "
+                        + formatDuration(retryAfterMillis / 1000);
+            }
+            return new GeminiException("QUOTA", message, status, retryAfterMillis);
         }
         if (status == 404) {
             return new GeminiException("MODEL", message, status);
@@ -214,21 +334,48 @@ public final class GeminiClient {
         }
     }
 
+    private static long parseRetryDelay(String delay) {
+        if (delay == null) return 0;
+        String normalized = delay.trim().toLowerCase(Locale.ROOT);
+        if (!normalized.endsWith("s")) return 0;
+        try {
+            double seconds = Double.parseDouble(normalized.substring(0, normalized.length() - 1));
+            return Math.max(1, Math.round(seconds * 1000));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    private static String formatDuration(long seconds) {
+        long hours = seconds / 3600;
+        long minutes = (seconds % 3600) / 60;
+        long remainingSeconds = seconds % 60;
+        if (hours > 0) return hours + " h " + minutes + " min";
+        if (minutes > 0) return minutes + " min " + remainingSeconds + " s";
+        return remainingSeconds + " s";
+    }
+
     public record ChatMessage(String role, String content) {}
     private record SendResult(String answer, GeminiException exception) {}
 
     public static final class GeminiException extends Exception {
         private final String code;
         private final int status;
+        private final long retryAfterMillis;
 
         public GeminiException(String code, String message) {
-            this(code, message, 0);
+            this(code, message, 0, 0);
         }
 
         public GeminiException(String code, String message, int status) {
+            this(code, message, status, 0);
+        }
+
+        public GeminiException(String code, String message, int status, long retryAfterMillis) {
             super(message);
             this.code = code;
             this.status = status;
+            this.retryAfterMillis = retryAfterMillis;
         }
 
         public String code() {
@@ -237,6 +384,10 @@ public final class GeminiClient {
 
         public int status() {
             return status;
+        }
+
+        public long retryAfterMillis() {
+            return retryAfterMillis;
         }
     }
 }

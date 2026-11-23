@@ -57,10 +57,15 @@ The optional `GEMINI_MODEL` variable selects the model; the default is
 `gemini-3.8-flash`. Optional variables are `GEMINI_TIMEOUT_SECONDS` and
 `AI_MAX_HISTORY_MESSAGES`.
 
-The fallback model is `gemini-3.5-flash-lite` and can be changed with
-`GEMINI_FALLBACK_MODEL`. HTTP 503 responses trigger at most two retries with
-1-second and 2-second backoff. The primary model and fallback remain on Google
-Gemini's free-tier-compatible API; this project never enables billing.
+The ordered free-tier fallback models are
+`gemini-3.5-flash-lite`, `gemini-3.5-flash`, `gemini-3.1-flash-lite`, and
+`gemini-3-flash-preview`. Override them with the comma-separated
+`GEMINI_FALLBACK_MODELS` variable. Every fallback must belong to the explicit
+free-tier allowlist and must be confirmed by the Gemini Models API before use.
+HTTP 503 responses trigger at most two retries with 1-second and 2-second
+backoff. HTTP 429 responses are not retried and are guarded locally until the
+`RetryInfo.retryDelay` reset time supplied by Google. The project never enables
+billing or selects a paid model automatically.
 
 ## Author
 
