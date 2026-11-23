@@ -38,11 +38,29 @@
                 </ScrollPane>
             </center>
             <bottom>
-                <HBox spacing="8" styleClass="composer">
-                    <Button text="+" onAction="#attach" styleClass="icon-button"/>
-                    <TextField fx:id="messageField" promptText="Écrire un message..." onAction="#send" HBox.hgrow="ALWAYS"/>
-                    <Button text="Envoyer" onAction="#send" styleClass="primary-button"/>
-                </HBox>
+                <VBox styleClass="composer">
+                    <HBox fx:id="composerBox" spacing="8">
+                        <Button text="+" onAction="#attach" styleClass="icon-button"/>
+                        <TextField fx:id="messageField" promptText="Écrire un message..." onAction="#send" HBox.hgrow="ALWAYS"/>
+                        <Button fx:id="recordButton" text="🎤" onAction="#startRecording" styleClass="icon-button"/>
+                        <Button text="Envoyer" onAction="#send" styleClass="primary-button"/>
+                    </HBox>
+                    <HBox fx:id="recordingBar" spacing="10" alignment="CENTER_LEFT"
+                          visible="false" managed="false" styleClass="recording-bar">
+                        <Label text="● Enregistrement" styleClass="recording-label"/>
+                        <Label fx:id="recordingDurationLabel" text="00:00" styleClass="recording-duration"/>
+                        <Button text="Stop" onAction="#stopRecording" styleClass="secondary-button"/>
+                        <Button text="Annuler" onAction="#cancelRecording" styleClass="icon-button"/>
+                    </HBox>
+                    <HBox fx:id="previewBar" spacing="8" alignment="CENTER_LEFT"
+                          visible="false" managed="false" styleClass="audio-preview">
+                        <Button fx:id="previewPlayButton" text="▶" onAction="#togglePreviewPlayback" styleClass="icon-button"/>
+                        <Slider fx:id="previewSlider" HBox.hgrow="ALWAYS" max="100" prefWidth="220"/>
+                        <Label fx:id="previewDurationLabel" text="00:00" styleClass="audio-duration"/>
+                        <Button text="Envoyer" onAction="#sendRecording" styleClass="primary-button"/>
+                        <Button text="Supprimer" onAction="#deleteRecording" styleClass="icon-button"/>
+                    </HBox>
+                </VBox>
             </bottom>
         </BorderPane>
     </center>

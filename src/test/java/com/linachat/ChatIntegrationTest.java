@@ -55,6 +55,21 @@ class ChatIntegrationTest {
             alice.sendFile(bobProfile.id(), audio.toFile());
             assertTrue(audioReceived.await(3, TimeUnit.SECONDS));
 
+            // Vérification du protocole vocal: données WAV, taille, destinataire et durée.
+            CountDownLatch voiceReceived = new CountDownLatch(1);
+            bob.onMessage(message -> {
+                if ("AUDIO".equals(message.type()) && "message.wav".equals(message.fileName())) {
+                    voiceReceived.countDown();
+                }
+            });
+            Path voice = Files.createTempDirectory("linachat").resolve("message.wav");
+            byte[] wav = new byte[44 + 2048];
+            wav[0] = 'R'; wav[1] = 'I'; wav[2] = 'F'; wav[3] = 'F';
+            wav[8] = 'W'; wav[9] = 'A'; wav[10] = 'V'; wav[11] = 'E';
+            Files.write(voice, wav);
+            alice.sendAudio(bobProfile.id(), voice.toFile(), 1250).get(3, TimeUnit.SECONDS);
+            assertTrue(voiceReceived.await(3, TimeUnit.SECONDS));
+
             // Une petite image PNG valide est envoyée via Base64 dans une trame MESSAGE.
             CountDownLatch imageReceived = new CountDownLatch(1);
             bob.onMessage(message -> {

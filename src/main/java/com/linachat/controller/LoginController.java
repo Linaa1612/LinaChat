@@ -74,13 +74,18 @@ public final class LoginController {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/linachat/fxml/Chat.fxml"));
             Scene scene = new Scene(loader.load(), 1100, 720);
-            loader.<ChatController>getController().initializeClient(client);
+            ChatController chatController = loader.getController();
+            chatController.initializeClient(client);
             scene.getStylesheets().add(getClass().getResource("/com/linachat/css/theme.css").toExternalForm());
             Stage stage = (Stage) usernameField.getScene().getWindow();
             stage.setTitle("LinaChat - " + user.name());
             stage.setScene(scene);
             stage.setMinWidth(850);
             stage.setMinHeight(560);
+            stage.setOnHidden(event -> {
+                chatController.disposeAudioResources();
+                try { client.close(); } catch (Exception ignored) { }
+            });
         } catch (Exception e) {
             connectButton.setDisable(false);
             statusLabel.setText("Impossible de charger LinaChat.");

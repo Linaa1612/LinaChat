@@ -98,17 +98,21 @@ public final class ChatServer implements AutoCloseable {
             send(from, Map.of("type", "HISTORY", "messages", history(from.userId, contactId)));
             return;
         }
-        if ("MESSAGE".equals(type) || "FILE".equals(type) || "IMAGE".equals(type)) {
+        if ("MESSAGE".equals(type) || "FILE".equals(type)
+                || "IMAGE".equals(type) || "AUDIO".equals(type)) {
             //Transforme la Map reçue en objet Message
             Message message = JsonCodec.MAPPER.convertValue(frame, Message.class);
             //Vérifie que l'expéditeur est bien connecté, que le destinataire existe et que le fichier respecte la taille
             //autorisée (15 Mo maximum) ; vérifie aussi que l'image est valide.
             if (!message.sender().equals(from.userId) || !profiles.containsKey(message.recipient())
                     || message.fileSize() < 0 || message.fileSize() > 15L * 1024 * 1024
-                    || ("IMAGE".equals(type) && !validImage(message))) {
+                    || ("IMAGE".equals(type) && !validImage(message))
+                    || ("AUDIO".equals(type) && !validAudio(message))) {
                 //Si le message n'est pas valide, le serveur envoie une erreur à l'expéditeur
                 send(from, Map.of("type", "ERROR", "message",
-                        "IMAGE".equals(type) ? "Image invalide ou trop volumineuse." : "Destinataire indisponible."));
+                        "IMAGE".equals(type) ? "Image invalide ou trop volumineuse."
+                                : "AUDIO".equals(type) ? "Message vocal invalide ou trop volumineux."
+                                : "Destinataire indisponible."));
                 return;
             }
             //enregistre le message dans l'historique
@@ -134,6 +138,25 @@ public final class ChatServer implements AutoCloseable {
             catch (IllegalArgumentException | IOException e) {
                 return false;
             }
+    }
+
+    private boolean validAudio(Message message) {
+        // Hna kancheckiw le contenu reel, pas seulement le nom du fichier.
+        try {
+            if (message.contentBase64() == null || message.fileName() == null
+                    || !message.fileName().toLowerCase(Locale.ROOT).endsWith(".wav")) {
+                return false;
+            }
+            byte[] data = Base64.getDecoder().decode(message.contentBase64());
+            return data.length == message.fileSize()
+                    && data.length > 44
+                    && data[0] == 'R' && data[1] == 'I'
+                    && data[2] == 'F' && data[3] == 'F'
+                    && data[8] == 'W' && data[9] == 'A'
+                    && data[10] == 'V' && data[11] == 'E';
+        } catch (IllegalArgumentException | IndexOutOfBoundsException e) {
+            return false;
+        }
     }
 
     private boolean validAvatar(String base64) {

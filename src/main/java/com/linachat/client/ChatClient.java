@@ -7,6 +7,7 @@ import com.linachat.network.JsonCodec;
 
 import java.io.*;
 import java.net.Socket;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
@@ -19,6 +20,7 @@ public final class ChatClient implements AutoCloseable {
     private final ExecutorService reader = Executors.newSingleThreadExecutor();
     private final ExecutorService transfers = Executors.newFixedThreadPool(2);
     private static final long MAX_IMAGE_BYTES = 15L * 1024 * 1024;
+    private static final long MAX_AUDIO_BYTES = 15L * 1024 * 1024;
     private final BlockingQueue<Object> outgoing = new LinkedBlockingQueue<>();
     private volatile Socket socket;
     private volatile User currentUser;
@@ -64,7 +66,8 @@ public final class ChatClient implements AutoCloseable {
                 String type = String.valueOf(frame.get("type"));
                 if ("CONTACTS".equals(type)) {
                     contactsHandler.accept(JsonCodec.MAPPER.convertValue(frame.get("users"), new TypeReference<>() {}));
-                } else if ("MESSAGE".equals(type) || "FILE".equals(type) || "IMAGE".equals(type)) {
+                } else if ("MESSAGE".equals(type) || "FILE".equals(type)
+                        || "IMAGE".equals(type) || "AUDIO".equals(type)) {
                     messageHandler.accept(JsonCodec.MAPPER.convertValue(frame, Message.class));
                 } else if ("HISTORY".equals(type)) {
                     historyHandler.accept(JsonCodec.MAPPER.convertValue(frame.get("messages"), new TypeReference<>() {}));
@@ -103,6 +106,34 @@ public final class ChatClient implements AutoCloseable {
                 Message image = Message.image(currentUser.id(), recipientId, file.getName(), bytes);
                 outgoing.put(JsonCodec.MAPPER.convertValue(image, new TypeReference<Map<String, Object>>() {}));
                 return image;
+            } catch (Exception e) {
+                throw new CompletionException(e);
+            }
+        }, transfers);
+    }
+
+    /**
+     * Lit le WAV hors du thread JavaFX, vérifie sa taille et son entete RIFF/WAVE,
+     * puis place le Message dans la queue ecrite par writeLoop().
+     * Hna kansifto le binaire reel, pas juste le chemin local.
+     */
+    public CompletableFuture<Message> sendAudio(String recipientId, File file, long durationMillis) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                if (!file.isFile()) throw new IOException("Audio introuvable.");
+                if (file.length() <= 44) throw new IOException("Le message vocal est vide.");
+                if (file.length() > MAX_AUDIO_BYTES) throw new IOException("Audio trop volumineux (15 Mo maximum).");
+                byte[] bytes = Files.readAllBytes(file.toPath());
+                if (bytes.length < 12
+                        || bytes[0] != 'R' || bytes[1] != 'I' || bytes[2] != 'F' || bytes[3] != 'F'
+                        || bytes[8] != 'W' || bytes[9] != 'A' || bytes[10] != 'V' || bytes[11] != 'E') {
+                    throw new IOException("Format audio WAV invalide.");
+                }
+                Message audio = Message.audio(currentUser.id(), recipientId, file.getName(), bytes,
+                        Math.max(durationMillis, 1));
+                outgoing.put(JsonCodec.MAPPER.convertValue(audio,
+                        new TypeReference<Map<String, Object>>() {}));
+                return audio;
             } catch (Exception e) {
                 throw new CompletionException(e);
             }
