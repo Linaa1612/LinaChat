@@ -89,10 +89,16 @@ public final class ChatClient implements AutoCloseable {
                 Message.text(currentUser.id(), recipientId, text), new TypeReference<Map<String, Object>>() {}));
     }
 
-    public void sendFile(String recipientId, File file) throws IOException {
-        outgoing.add(JsonCodec.MAPPER.convertValue(
-                Message.file(currentUser.id(), recipientId, file.getName(), java.nio.file.Files.readAllBytes(file.toPath())),
+    // Retourne l'objet Message créé afin que l'expéditeur puisse afficher la carte
+    // Hna kangetul objet avant envoyer le binaire Base64 dans la meme queue TCP.
+    public Message sendFile(String recipientId, File file) throws IOException {
+        if (!file.isFile()) throw new IOException("Fichier introuvable.");
+        if (file.length() > 15L * 1024 * 1024) throw new IOException("Fichier trop volumineux (15 Mo maximum).");
+        Message message = Message.file(currentUser.id(), recipientId, file.getName(),
+                java.nio.file.Files.readAllBytes(file.toPath()));
+        outgoing.add(JsonCodec.MAPPER.convertValue(message,
                 new TypeReference<Map<String, Object>>() {}));
+        return message;
     }
 
     public CompletableFuture<Message> sendImage(String recipientId, File file) {
@@ -145,6 +151,16 @@ public final class ChatClient implements AutoCloseable {
     public void onContacts(Consumer<List<User>> handler) { contactsHandler = handler; }
     public void onHistory(Consumer<List<Message>> handler) { historyHandler = handler; }
     public void onError(Consumer<String> handler) { errorHandler = handler; }
+
+    /**
+     * Demande une déconnexion propre au serveur via le protocole TCP existant.
+     * La trame utilise la file writer afin de ne jamais écrire simultanément depuis un second thread.
+     */
+    public void disconnect() {
+        if (socket != null && !socket.isClosed()) {
+            outgoing.add(Map.of("type", "DISCONNECT"));
+        }
+    }
 
     @Override public void close() throws IOException {
         if (socket != null) socket.close();

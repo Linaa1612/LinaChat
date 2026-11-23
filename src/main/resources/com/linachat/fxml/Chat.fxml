@@ -13,6 +13,7 @@
                     <Label fx:id="profileStatusLabel" text="Disponible" styleClass="profile-status"/>
                 </VBox>
                 <Button text="⚙" onAction="#openSettings" styleClass="transparent-button"/>
+                <Button text="Déconnexion" onAction="#disconnect" styleClass="secondary-button"/>
             </HBox>
             <TextField promptText="Rechercher un contact..." styleClass="search"/>
             <Label text="CONTACTS" styleClass="section-label"/>
@@ -42,6 +43,7 @@
                     <HBox fx:id="composerBox" spacing="8">
                         <Button text="+" onAction="#attach" styleClass="icon-button"/>
                         <TextField fx:id="messageField" promptText="Écrire un message..." onAction="#send" HBox.hgrow="ALWAYS"/>
+                        <Button text="😊" onAction="#toggleEmojiPicker" styleClass="icon-button"/>
                         <Button fx:id="recordButton" text="🎤" onAction="#startRecording" styleClass="icon-button"/>
                         <Button text="Envoyer" onAction="#send" styleClass="primary-button"/>
                     </HBox>

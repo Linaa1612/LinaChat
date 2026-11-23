@@ -60,12 +60,7 @@ public final class ChatServer implements AutoCloseable {
         } catch (IOException ignored) {
         } finally {
             if (session.userId != null) {
-                sessions.remove(session.userId);
-                profiles.computeIfPresent(session.userId, (id, user) ->
-                        //crée un nouveau profil avec les mêmes informations
-                        new User(user.id(), user.name(), user.status(), user.avatarBase64(), false));
-                //notifie tous les clients que l'utilisateur est hors ligne
-                broadcastContacts();
+                removeSession(session);
             }
         }
     }
@@ -91,6 +86,13 @@ public final class ChatServer implements AutoCloseable {
             send(from, Map.of("type", "PROFILE", "user", profiles.get(user.id())));
             //informe tous les clients des utilisateurs disponibles et de leur statut
             broadcastContacts();
+            return;
+        }
+        if ("DISCONNECT".equals(type)) {
+            // Retire immédiatement cette session et son profil de la mémoire serveur.
+            // Hna kanbandow synchronisé bach maybqach ghost user f list des contacts.
+            removeSession(from);
+            try { from.socket.close(); } catch (IOException ignored) { }
             return;
         }
         if ("HISTORY_REQUEST".equals(type)) {
@@ -178,6 +180,19 @@ public final class ChatServer implements AutoCloseable {
     private String key(String first, String second) {
         // La cle est symetrique: A/B et B/A ont le meme historique.
         return first.compareTo(second) < 0 ? first + ":" + second : second + ":" + first;
+    }
+
+    private void removeSession(ClientSession session) {
+        if (session.userId == null) return;
+        // sessions.remove uniquement si cette socket correspond encore au profil.
+        // Cela évite qu'une ancienne connexion supprimette une nouvelle reconnexion.
+        sessions.computeIfPresent(session.userId, (id, active) ->
+                active == session ? null : active);
+        if (!sessions.containsKey(session.userId)
+                || sessions.get(session.userId) == null) {
+            profiles.remove(session.userId);
+        }
+        broadcastContacts();
     }
 
     private void broadcastContacts() {

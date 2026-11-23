@@ -9,6 +9,11 @@ import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
+import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.GridPane;
+import javafx.geometry.Insets;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
@@ -16,9 +21,12 @@ import javafx.scene.layout.VBox;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
 import javafx.stage.FileChooser;
+import javafx.stage.Popup;
+import java.awt.Desktop;
 import javafx.util.Duration;
 
 import java.io.File;
+import java.io.IOException;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -66,11 +74,13 @@ public final class ChatController {
     private File previewAudioFile;
     private long previewDurationMillis;
     private long recordingStartedNanos;
+    private Popup emojiPopup;
 
     // Cette methode est appelee apres le chargement du FXML. Elle relie le client TCP
     // aux callbacks JavaFX et initialise l'affichage du profil et des contacts.
     public void initializeClient(ChatClient chatClient) {
         client = chatClient;
+        buildEmojiPicker();
         User me = client.user();
         profileNameLabel.setText(me.name());
         profileStatusLabel.setText(me.status().isBlank() ? "Disponible" : me.status());
@@ -138,6 +148,129 @@ public final class ChatController {
         renderConversation();
     }
 
+    /**
+     * Ouvre ou ferme le panneau emoji sous la barre de composition.
+     * Hna Popup kaybqa te7t champ, kajunction search/categories/sucessive selection.
+     */
+    @FXML private void toggleEmojiPicker() {
+        if (emojiPopup == null) buildEmojiPicker();
+        if (emojiPopup.isShowing()) {
+            emojiPopup.hide();
+        } else {
+            emojiPopup.show(composerBox.getScene().getWindow(),
+                    composerBox.localToScreen(composerBox.getLayoutBounds()).getMinX(),
+                    composerBox.localToScreen(composerBox.getLayoutBounds()).getMaxY());
+        }
+    }
+
+    private void buildEmojiPicker() {
+        emojiPopup = new Popup();
+        emojiPopup.setAutoHide(true);
+        VBox panel = new VBox(8);
+        panel.setPadding(new Insets(10));
+        panel.getStyleClass().add("emoji-panel");
+
+        TextField search = new TextField();
+        search.setPromptText("Rechercher un emoji...");
+        search.getStyleClass().add("search");
+        FlowPane searchResults = new FlowPane(6, 6);
+        searchResults.setPrefWidth(420);
+        searchResults.setPrefWrapLength(420);
+
+        TabPane tabs = new TabPane();
+        tabs.setPrefWidth(440);
+        tabs.setPrefHeight(280);
+        Map<String, String> categories = emojiCategories();
+        for (Map.Entry<String, String> category : categories.entrySet()) {
+            GridPane grid = new GridPane();
+            grid.setHgap(6);
+            grid.setVgap(6);
+            grid.setPadding(new Insets(8));
+            String[] emojis = category.getValue().split(" ");
+            for (int i = 0; i < emojis.length; i++) {
+                Button emojiButton = emojiButton(emojis[i]);
+                grid.add(emojiButton, i % 12, i / 12);
+            }
+            ScrollPane scroll = new ScrollPane(grid);
+            scroll.setFitToWidth(true);
+            scroll.getStyleClass().add("emoji-scroll");
+            Tab tab = new Tab(category.getKey(), scroll);
+            tab.setClosable(false);
+            tabs.getTabs().add(tab);
+        }
+
+        // La recherche filtre tous les emojis disponibles sans modifier le texte du champ.
+        search.textProperty().addListener((obs, oldValue, value) -> {
+            searchResults.getChildren().clear();
+            if (value == null || value.isBlank()) return;
+            String query = value.trim().toLowerCase(Locale.ROOT);
+            for (Map.Entry<String, String> category : categories.entrySet()) {
+                for (String emoji : category.getValue().split(" ")) {
+                    if (emojiNames().getOrDefault(emoji, "").contains(query)
+                            || category.getKey().toLowerCase(Locale.ROOT).contains(query)) {
+                        searchResults.getChildren().add(emojiButton(emoji));
+                    }
+                }
+            }
+        });
+        searchResults.setVisible(false);
+        searchResults.setManaged(false);
+        search.textProperty().addListener((obs, oldValue, value) -> {
+            boolean searching = value != null && !value.isBlank();
+            tabs.setVisible(!searching);
+            tabs.setManaged(!searching);
+            searchResults.setVisible(searching);
+            searchResults.setManaged(searching);
+        });
+
+        Button close = new Button("Fermer");
+        close.getStyleClass().add("secondary-button");
+        close.setOnAction(event -> emojiPopup.hide());
+        HBox header = new HBox(8, search, close);
+        panel.getChildren().addAll(header, tabs, searchResults);
+        emojiPopup.getContent().add(panel);
+        emojiPopup.setOnHidden(event -> {
+            search.clear();
+        });
+    }
+
+    private Button emojiButton(String emoji) {
+        Button button = new Button(emoji);
+        button.getStyleClass().add("emoji-button");
+        button.setOnAction(event -> {
+            int position = messageField.getCaretPosition();
+            messageField.insertText(position, emoji);
+            messageField.requestFocus();
+            // Le popup reste ouvert pour permettre plusieurs emojis successifs.
+        });
+        return button;
+    }
+
+    private Map<String, String> emojiCategories() {
+        LinkedHashMap<String, String> categories = new LinkedHashMap<>();
+        categories.put("Smileys", "😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😝 😜 🤪 🤨 🧐 🤓 😎 🥳 😔 😟 🙁 ☹️ 😢 😂");
+        categories.put("Gestes", "👋 🤚 🖐️ ✋ 🖖 👌 🤌 🤏 ✌️ 🤞 🤟 🤘 🤙 👈 👉 👆 🖕 👇 ☝️ 👍 👎 ✊ 👊 🤛 🤜 👏 🙌 🧠");
+        categories.put("Nature", "🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🙈 🙉 🙊 🐔 🐧 🐦 🦆 🦅 🦉 🦇 🐺 🐗 🐴 🦄 🐝 🦋 🌲 🌳 🌴 🌵 🌱 🌿 ☘️ 🍀 🌸 🌻");
+        categories.put("Nourriture", "🍇 🍈 🍉 🍊 🍋 🍌 🍍 🥭 🍎 🍏 🍐 🍑 🍒 🍓 🥝 🍅 🥑 🍆 🥕 🌽 🥔 🍞 🥐 🥖 🧀 🍔 🍟 🍕 🌮 🌯 🥗 🍝 🍣 🍰 🎂 ☕ 🧋");
+        categories.put("Voyages", "🚗 🚕 🚙 🚌 🚎 🏎️ 🚓 🚑 🚒 🚐 🚚 🚛 🚜 🛵 🏍️ 🚲 ✈️ 🚀 🛸 🚢 ⛵ 🚉 🚇 🚊 🗺️ 🧭 🏔️ ⛰️ 🌋 🏖️ 🏰");
+        categories.put("Activités", "⚽ 🏀 🏈 ⚾ 🥎 🎾 🏐 🏉 🥏 🎱 🏓 🏸 🥊 🥋 🎿 ⛷️ 🏂 🏋️ 🤼 🤸 ⛹️ 🤺 🤾 🏇 🧘 🎤 🎧 🎼 🎹 🥁 🎸");
+        categories.put("Objets", "⌚ 📱 💻 ⌨️ 🖥️ 🖨️ 🖱️ 💾 💿 📀 📷 📸 📹 🎥 📞 ☎️ 📺 📻 🎙️ 🧰 🔧 🔨 🔐 🔑 🧲 💡 🔦 🏷️");
+        categories.put("Symboles", "❤️ 🧡 💛 💚 💙 💜 🤎 🖤 🤍 💔 ❣️ 💯 💢 💥 💫 💦 💨 🕳️ 💬 👁️‍🗨️ 💭 ♠️ ♥️ ♦️ ♣️ 🅰️ 🅱️ ✅ ❌ ⭕ 💠");
+        categories.put("Drapeaux", "🇲🇦 🇫🇷 🇺🇸 🇬🇧 🇪🇸 🇮🇹 🇩🇪 🇨🇦 🇧🇷 🇯🇵 🇹🇷 🇸🇦 🇪🇬 🇩🇿 🇹🇳 🇨🇳 🇰🇷 🇦🇺 🇮🇳");
+        return categories;
+    }
+
+    private Map<String, String> emojiNames() {
+        // Les noms sont volontairement simples pour rendre la recherche rapide.
+        Map<String, String> names = new HashMap<>();
+        names.put("😀", "sourire heureux"); names.put("😂", "rire larmes"); names.put("😊", "sourire");
+        names.put("😍", "coeur amour yeux"); names.put("😢", "pleurer triste"); names.put("👍", "pouce ok");
+        names.put("👎", "pouce non"); names.put("❤️", "coeur amour"); names.put("☕", "cafe");
+        names.put("🎵", "musique"); names.put("🎤", "micro"); names.put("⚽", "football sport");
+        names.put("🇲🇦", "maroc marocain"); names.put("🇫🇷", "france");
+        return names;
+    }
+
     // @FXML relie cette methode a onAction="#send" dans le FXML.
     // Le message est affiche immediatement, puis envoye au serveur via le socket TCP.
     @FXML private void send() {
@@ -172,7 +305,14 @@ public final class ChatController {
                 renderMessage(message);
             })).exceptionally(error -> { Platform.runLater(() -> statusLabel.setText(imageError(error))); return null; });
         } else {
-            try { client.sendFile(recipient, file); statusLabel.setText("Fichier envoyé."); }
+            try {
+                Message message = client.sendFile(recipient, file);
+                conversations.computeIfAbsent(recipient, ignored -> new ArrayList<>()).add(message);
+                lastMessages.put(recipient, message);
+                usersList.refresh();
+                renderMessage(message);
+                statusLabel.setText("Fichier envoyé.");
+            }
             catch (Exception e) { statusLabel.setText("Impossible d'envoyer le fichier."); }
         }
     }
@@ -353,6 +493,8 @@ public final class ChatController {
             bubble = imageBubble(message);
         } else if ("AUDIO".equals(message.type())) {
             bubble = audioBubble(message);
+        } else if ("FILE".equals(message.type())) {
+            bubble = fileBubble(message);
         } else {
             String content = message.text() != null ? message.text() : "Fichier : " + message.fileName();
             Label label = new Label(content + "\n" + time.format(message.timestamp().atZone(ZoneId.systemDefault())));
@@ -421,6 +563,95 @@ public final class ChatController {
         }
     }
 
+    /**
+     * Affiche les fichiers recus sous forme de carte, puis sauvegarde les octets localement.
+     * Hna kan7afdo le binaire reçu dans storage/files bach l'utilisateur ydir open/download.
+     */
+    private javafx.scene.Node fileBubble(Message message) {
+        try {
+            byte[] bytes = Base64.getDecoder().decode(message.contentBase64());
+            if (bytes.length != message.fileSize()) throw new IOException("Taille du fichier reçue incorrecte.");
+            Path folder = Paths.get("storage", "files");
+            Files.createDirectories(folder);
+            String safeName = Paths.get(message.fileName()).getFileName().toString();
+            Path filePath = folder.resolve(message.id() + "-" + safeName);
+            Files.write(filePath, bytes);
+
+            String lower = safeName.toLowerCase(Locale.ROOT);
+            String extension = lower.contains(".")
+                    ? lower.substring(lower.lastIndexOf('.') + 1) : "fichier";
+            String icon = switch (extension) {
+                case "pdf" -> "PDF";
+                case "doc", "docx" -> "DOC";
+                case "xls", "xlsx", "csv" -> "XLS";
+                case "ppt", "pptx" -> "PPT";
+                case "zip", "rar", "7z" -> "ZIP";
+                default -> extension.length() > 4
+                        ? extension.substring(0, 4).toUpperCase(Locale.ROOT)
+                        : extension.toUpperCase(Locale.ROOT);
+            };
+
+            VBox card = new VBox(6);
+            card.getStyleClass().addAll("file-card",
+                    message.sender().equals(client.user().id()) ? "message-out" : "message-in");
+            Label iconLabel = new Label(icon);
+            iconLabel.getStyleClass().add("file-icon");
+            Label nameLabel = new Label(safeName);
+            nameLabel.getStyleClass().add("file-name");
+            nameLabel.setWrapText(true);
+            Label details = new Label("." + extension + "  •  " + formatFileSize(message.fileSize()));
+            details.getStyleClass().add("file-details");
+            HBox actions = new HBox(8);
+            Button openButton = new Button("Ouvrir");
+            openButton.getStyleClass().add("secondary-button");
+            openButton.setOnAction(event -> openFile(filePath));
+            Button downloadButton = new Button("Télécharger");
+            downloadButton.getStyleClass().add("secondary-button");
+            downloadButton.setOnAction(event -> downloadFile(filePath, safeName));
+            actions.getChildren().addAll(openButton, downloadButton);
+            card.getChildren().addAll(iconLabel, nameLabel, details, actions);
+            return card;
+        } catch (Exception e) {
+            return new Label("Fichier invalide ou indisponible.");
+        }
+    }
+
+    private void openFile(Path filePath) {
+        try {
+            if (!Files.isRegularFile(filePath)) throw new IOException("Fichier introuvable.");
+            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+                Desktop.getDesktop().open(filePath.toFile());
+                statusLabel.setText("Fichier ouvert.");
+            } else {
+                statusLabel.setText("Aucune application système disponible pour ouvrir ce fichier.");
+            }
+        } catch (Exception e) {
+            statusLabel.setText("Impossible d'ouvrir le fichier.");
+        }
+    }
+
+    private void downloadFile(Path filePath, String originalName) {
+        FileChooser chooser = new FileChooser();
+        chooser.setInitialFileName(originalName);
+        File destination = chooser.showSaveDialog(messageField.getScene().getWindow());
+        if (destination == null) return;
+        CompletableFuture.runAsync(() -> {
+            try {
+                Files.copy(filePath, destination.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                Platform.runLater(() -> statusLabel.setText("Fichier téléchargé."));
+            } catch (Exception e) {
+                Platform.runLater(() -> statusLabel.setText("Téléchargement impossible."));
+            }
+        });
+    }
+
+    private String formatFileSize(long bytes) {
+        if (bytes < 1024) return bytes + " o";
+        if (bytes < 1024 * 1024) return String.format(Locale.FRANCE, "%.1f Ko", bytes / 1024.0);
+        return String.format(Locale.FRANCE, "%.1f Mo", bytes / (1024.0 * 1024.0));
+    }
+
     private javafx.scene.Node imageBubble(Message message) {
         try {
             byte[] bytes = Base64.getDecoder().decode(message.contentBase64());
@@ -431,9 +662,20 @@ public final class ChatController {
             ImageView image = new ImageView(new Image(new ByteArrayInputStream(bytes), 320, 240, true, true));
             image.setPreserveRatio(true);
             image.setOnMouseClicked(event -> {
-                if (event.getClickCount() == 2) {
-                    try { new ProcessBuilder("cmd", "/c", "start", "", imagePath.toAbsolutePath().toString()).start(); }
-                    catch (Exception ignored) { statusLabel.setText("Impossible d'ouvrir l'image."); }
+                if (event.getClickCount() < 1) return;
+                try {
+                    Alert viewer = new Alert(Alert.AlertType.INFORMATION);
+                    viewer.setHeaderText(message.fileName());
+                    ImageView enlarged = new ImageView(new Image(new ByteArrayInputStream(bytes)));
+                    enlarged.setPreserveRatio(true);
+                    enlarged.setFitWidth(720);
+                    enlarged.setFitHeight(520);
+                    viewer.getDialogPane().setContent(enlarged);
+                    viewer.getDialogPane().getStylesheets().add(
+                            getClass().getResource("/com/linachat/css/theme.css").toExternalForm());
+                    viewer.showAndWait();
+                } catch (Exception ignored) {
+                    statusLabel.setText("Impossible d'ouvrir l'image.");
                 }
             });
             return image;
@@ -494,4 +736,10 @@ public final class ChatController {
     // Les actions JavaFX doivent rester sur le thread graphique. Ici, le bouton ouvre
     // seulement les parametres locaux du profil et informe l'utilisateur sans blocage.
     @FXML private void openSettings() { statusLabel.setText("Paramètres du profil disponibles prochainement."); }
+
+    /** Envoie une trame DISCONNECT puis conserve la Socket fermée par le serveur. */
+    @FXML private void disconnect() {
+        if (client != null) client.disconnect();
+        statusLabel.setText("Déconnexion en cours...");
+    }
 }

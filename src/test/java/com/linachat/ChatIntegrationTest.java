@@ -39,6 +39,14 @@ class ChatIntegrationTest {
             alice.sendText(bobProfile.id(), "Bonjour Bob");
             assertTrue(bobReceived.await(3, TimeUnit.SECONDS));
 
+            // Les emojis sont des caractères Unicode ordinaires envoyés dans le champ texte.
+            CountDownLatch emojiReceived = new CountDownLatch(1);
+            bob.onMessage(message -> {
+                if ("Hello 😊 مرحبا".equals(message.text())) emojiReceived.countDown();
+            });
+            alice.sendText(bobProfile.id(), "Hello 😊 مرحبا");
+            assertTrue(emojiReceived.await(3, TimeUnit.SECONDS));
+
             // Le meme protocole transporte les fichiers generiques, dont les fichiers audio WAV.
             CountDownLatch fileReceived = new CountDownLatch(1);
             CountDownLatch audioReceived = new CountDownLatch(1);
@@ -84,6 +92,24 @@ class ChatIntegrationTest {
             Files.write(image, png.toByteArray());
             alice.sendImage(bobProfile.id(), image.toFile()).get(3, TimeUnit.SECONDS);
             assertTrue(imageReceived.await(3, TimeUnit.SECONDS));
+
+            // Alice envoie une déconnexion propre; Bob doit recevoir immédiatement une liste sans Alice.
+            CountDownLatch aliceRemoved = new CountDownLatch(1);
+            bob.onContacts(users -> {
+                if (users.stream().noneMatch(user -> user.id().equals(aliceProfile.id()))) {
+                    aliceRemoved.countDown();
+                }
+            });
+            alice.disconnect();
+            assertTrue(aliceRemoved.await(3, TimeUnit.SECONDS));
+
+            // Reconnexion: un nouvel identifiant crée un nouveau profil temporaire,
+            // sans aucune base de données ni conservation permanente.
+            ChatClient aliceReconnected = new ChatClient();
+            User aliceAgain = User.create("Alice", "Disponible", null);
+            aliceReconnected.connect("127.0.0.1", server.localPort(), aliceAgain)
+                    .get(3, TimeUnit.SECONDS);
+            aliceReconnected.close();
             alice.close();
             bob.close();
         } finally {

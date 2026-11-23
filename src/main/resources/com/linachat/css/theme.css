@@ -25,3 +25,19 @@
 .recording-duration,.audio-duration { -fx-text-fill: #667781; -fx-font-size: 12px; }
 .audio-preview { -fx-padding: 8px 0 0 0; }
 .audio-bubble { -fx-padding: 8px 10px; -fx-background-radius: 10; -fx-spacing: 8; -fx-alignment: center-left; }
+
+/* Cartes visuelles pour les fichiers partagés. */
+.file-card { -fx-padding: 10px 12px; -fx-background-radius: 10; -fx-spacing: 5; -fx-max-width: 420px; }
+.file-icon { -fx-background-color: #075e54; -fx-text-fill: white; -fx-font-weight: bold;
+             -fx-padding: 8px; -fx-background-radius: 8; -fx-max-width: 54px; }
+.file-name { -fx-font-weight: bold; -fx-wrap-text: true; }
+.file-details { -fx-text-fill: #667781; -fx-font-size: 11px; }
+
+/* Panneau Emoji Picker. */
+.emoji-panel { -fx-background-color: white; -fx-background-radius: 12;
+               -fx-effect: dropshadow(gaussian, #00000040, 12, .15, 0, 3);
+               -fx-border-color: #e5e9eb; -fx-border-radius: 12; }
+.emoji-button { -fx-font-size: 20px; -fx-min-width: 34px; -fx-min-height: 34px;
+                -fx-background-color: transparent; -fx-background-radius: 6; }
+.emoji-button:hover { -fx-background-color: #d7eee9; }
+.emoji-scroll { -fx-background-color: transparent; }
