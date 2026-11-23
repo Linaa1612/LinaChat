@@ -17,6 +17,7 @@
 .messages { -fx-background-color: #efeae2; }.composer { -fx-padding: 12px; }.composer .text-field { -fx-background-radius: 20; }
 .primary-button { -fx-background-color: #128c7e; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 20; -fx-padding: 10px 18px; }.primary-button:hover { -fx-background-color: #075e54; }.icon-button { -fx-background-color: #f0f2f5; -fx-background-radius: 20; }
 .secondary-button { -fx-background-color: #e7f3f0; -fx-text-fill: #075e54; -fx-background-radius: 20; -fx-padding: 9px 14px; }.secondary-button:hover { -fx-background-color: #d0e9e3; }
+.ai-sidebar-button { -fx-background-color: #20a29a; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 18; -fx-padding: 10px 12px; }.ai-pane { -fx-background-color: #efeae2; }.ai-icon { -fx-font-size: 24px; }.ai-loading { -fx-progress-color: #128c7e; }.ai-user,.ai-assistant { -fx-padding: 10px 13px; -fx-background-radius: 10; -fx-wrap-text: true; -fx-max-width: 520px; }.ai-user { -fx-background-color: #dcf8c6; }.ai-assistant { -fx-background-color: white; }.ai-error { -fx-text-fill: #b3261e; -fx-wrap-text: true; }
 .message-in,.message-out { -fx-padding: 10px 13px; -fx-background-radius: 10; -fx-max-width: 520px; }.message-in { -fx-background-color: white; }.message-out { -fx-background-color: #dcf8c6; -fx-alignment: center-right; }.error-label { -fx-text-fill: #b3261e; }.avatar,.profile-avatar { -fx-text-fill: #128c7e; -fx-font-size: 28px; }.profile-avatar { -fx-font-size: 70px; }
 
 /* Controles de l'enregistrement vocal et des bulles audio. */

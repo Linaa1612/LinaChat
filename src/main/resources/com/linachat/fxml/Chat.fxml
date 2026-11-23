@@ -16,13 +16,15 @@
                 <Button text="Déconnexion" onAction="#disconnect" styleClass="secondary-button"/>
             </HBox>
             <TextField promptText="Rechercher un contact..." styleClass="search"/>
+            <Button text="✨ Assistant IA" onAction="#openAiAssistant" styleClass="ai-sidebar-button"/>
             <Label text="CONTACTS" styleClass="section-label"/>
             <ListView fx:id="usersList" VBox.vgrow="ALWAYS"/>
             <Label fx:id="statusLabel" text="Connecté" styleClass="sidebar-status"/>
         </VBox>
     </left>
     <center>
-        <BorderPane>
+        <StackPane>
+            <BorderPane fx:id="chatPane">
             <top>
                 <HBox alignment="CENTER_LEFT" spacing="12" styleClass="chat-header">
                     <ImageView fx:id="contactAvatar" fitWidth="34" fitHeight="34" preserveRatio="true"/>
@@ -64,6 +66,36 @@
                     </HBox>
                 </VBox>
             </bottom>
-        </BorderPane>
+            </BorderPane>
+            <BorderPane fx:id="aiPane" visible="false" managed="false" styleClass="ai-pane">
+                <top>
+                    <HBox alignment="CENTER_LEFT" spacing="12" styleClass="chat-header">
+                        <Label text="✨" styleClass="ai-icon"/>
+                        <VBox>
+                            <Label text="Assistant IA" styleClass="contact-name"/>
+                            <Label text="Conversation privée" styleClass="profile-status"/>
+                        </VBox>
+                        <Pane HBox.hgrow="ALWAYS"/>
+                        <ProgressIndicator fx:id="aiLoading" prefWidth="24" prefHeight="24" visible="false" managed="false"/>
+                        <Button text="Fermer" onAction="#closeAiAssistant" styleClass="secondary-button"/>
+                    </HBox>
+                </top>
+                <center>
+                    <ScrollPane fx:id="aiScroll" fitToWidth="true" styleClass="conversation-scroll">
+                        <content>
+                            <VBox fx:id="aiMessagesBox" spacing="8" styleClass="messages">
+                                <padding><Insets top="18" right="22" bottom="18" left="22"/></padding>
+                            </VBox>
+                        </content>
+                    </ScrollPane>
+                </center>
+                <bottom>
+                    <HBox spacing="8" styleClass="composer">
+                        <TextField fx:id="aiMessageField" promptText="Posez une question à l'assistant IA..." onAction="#sendAi" HBox.hgrow="ALWAYS"/>
+                        <Button fx:id="aiSendButton" text="Envoyer" onAction="#sendAi" styleClass="primary-button"/>
+                    </HBox>
+                </bottom>
+            </BorderPane>
+        </StackPane>
     </center>
 </BorderPane>

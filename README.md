@@ -48,6 +48,20 @@ LinaChat follows a Client-Server architecture:
 
 Under development.
 
+## Assistant Gemini
+
+The server reads `GEMINI_API_KEY` from the Windows environment with
+`System.getenv("GEMINI_API_KEY")`. Do not add the key to Java source or FXML.
+
+The optional `GEMINI_MODEL` variable selects the model; the default is
+`gemini-3.8-flash`. Optional variables are `GEMINI_TIMEOUT_SECONDS` and
+`AI_MAX_HISTORY_MESSAGES`.
+
+The fallback model is `gemini-3.5-flash-lite` and can be changed with
+`GEMINI_FALLBACK_MODEL`. HTTP 503 responses trigger at most two retries with
+1-second and 2-second backoff. The primary model and fallback remain on Google
+Gemini's free-tier-compatible API; this project never enables billing.
+
 ## Author
 
 Developed as an academic Java application project.

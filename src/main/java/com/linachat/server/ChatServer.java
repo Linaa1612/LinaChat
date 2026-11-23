@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.linachat.model.Message;
 import com.linachat.model.User;
 import com.linachat.network.JsonCodec;
+import com.linachat.service.AiConversationManager;
+import com.linachat.service.GeminiClient;
 
 import java.io.*;
 import java.net.*;
@@ -25,6 +27,9 @@ public final class ChatServer implements AutoCloseable {
     //si le serveur fonctionne
     private volatile boolean running;
     private ServerSocket socket;
+    private final GeminiClient aiClient = new GeminiClient();
+    private final AiConversationManager aiConversations = new AiConversationManager();
+    private final ConcurrentHashMap<String, ArrayDeque<Long>> aiRequests = new ConcurrentHashMap<>();
 
     public ChatServer(int port) { this.port = port; }
     public int localPort() { return socket == null ? port : socket.getLocalPort(); }
@@ -94,6 +99,48 @@ public final class ChatServer implements AutoCloseable {
             // Hna kanbandow synchronisé bach maybqach ghost user f list des contacts.
             removeSession(from);
             try { from.socket.close(); } catch (IOException ignored) { }
+            return;
+        }
+        if ("AI_REQUEST".equals(type)) {
+            if (from.userId == null) {
+                send(from, Map.of("type", "AI_ERROR", "message", "Utilisateur non identifié."));
+                return;
+            }
+            Object textObject = frame.get("text");
+            String text = textObject instanceof String value ? value.trim() : "";
+            if (text == null || text.isBlank()) {
+                send(from, Map.of("type", "AI_ERROR", "message", "Question IA vide."));
+                return;
+            }
+            if (!aiClient.configured()) {
+                send(from, Map.of("type", "AI_ERROR", "message",
+                        "Clé API absente. Configurez GEMINI_API_KEY sur le serveur."));
+                return;
+            }
+            if (!allowAiRequest(from.userId)) {
+                send(from, Map.of("type", "AI_ERROR", "message",
+                        "Limite de requêtes IA dépassée. Réessayez dans une minute."));
+                return;
+            }
+            final String userId = from.userId;
+            final List<GeminiClient.ChatMessage> history =
+                    aiConversations.appendUser(userId, text);
+            clients.submit(() -> {
+                try {
+                    String answer = aiClient.respond(history);
+                    aiConversations.appendAssistant(userId, answer);
+                    send(from, Map.of("type", "AI_RESPONSE", "text", answer));
+                } catch (GeminiClient.GeminiException e) {
+                    try {
+                        send(from, Map.of("type", "AI_ERROR", "message", e.getMessage()));
+                    } catch (IOException ignored) {}
+                } catch (Exception e) {
+                    try {
+                        send(from, Map.of("type", "AI_ERROR", "message",
+                                "Réponse du modèle indisponible ou invalide."));
+                    } catch (IOException ignored) {}
+                }
+            });
             return;
         }
         if ("HISTORY_REQUEST".equals(type)) {
@@ -209,8 +256,31 @@ public final class ChatServer implements AutoCloseable {
         if (!sessions.containsKey(session.userId)
                 || sessions.get(session.userId) == null) {
             profiles.remove(session.userId);
+            aiConversations.clear(session.userId);
+            aiRequests.remove(session.userId);
         }
         broadcastContacts();
+    }
+
+    private boolean allowAiRequest(String userId) {
+        int limit;
+        try {
+            limit = Math.max(1, Integer.parseInt(
+                    System.getenv().getOrDefault("AI_MAX_REQUESTS_PER_MINUTE", "10")));
+        } catch (NumberFormatException e) {
+            limit = 10;
+        }
+        long now = System.currentTimeMillis();
+        ArrayDeque<Long> timestamps = aiRequests.computeIfAbsent(userId,
+                ignored -> new ArrayDeque<>());
+        synchronized (timestamps) {
+            while (!timestamps.isEmpty() && now - timestamps.peekFirst() > 60_000) {
+                timestamps.removeFirst();
+            }
+            if (timestamps.size() >= limit) return false;
+            timestamps.addLast(now);
+            return true;
+        }
     }
 
     private void broadcastContacts() {

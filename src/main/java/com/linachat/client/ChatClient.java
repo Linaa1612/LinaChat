@@ -28,6 +28,8 @@ public final class ChatClient implements AutoCloseable {
     private Consumer<List<User>> contactsHandler = c -> {};
     private Consumer<List<Message>> historyHandler = h -> {};
     private Consumer<String> errorHandler = e -> {};
+    private Consumer<String> aiResponseHandler = r -> {};
+    private Consumer<String> aiErrorHandler = e -> {};
 
     public CompletableFuture<User> connect(String host, int port, User profile) {
         // supplyAsync evite de bloquer le thread JavaFX pendant l'ouverture du socket.
@@ -73,6 +75,10 @@ public final class ChatClient implements AutoCloseable {
                     historyHandler.accept(JsonCodec.MAPPER.convertValue(frame.get("messages"), new TypeReference<>() {}));
                 } else if ("ERROR".equals(type)) {
                     errorHandler.accept(String.valueOf(frame.get("message")));
+                } else if ("AI_RESPONSE".equals(type)) {
+                    aiResponseHandler.accept(String.valueOf(frame.get("text")));
+                } else if ("AI_ERROR".equals(type)) {
+                    aiErrorHandler.accept(String.valueOf(frame.get("message")));
                 }
             }
         } catch (IOException e) {
@@ -87,6 +93,12 @@ public final class ChatClient implements AutoCloseable {
     public void sendText(String recipientId, String text) {
         outgoing.add(JsonCodec.MAPPER.convertValue(
                 Message.text(currentUser.id(), recipientId, text), new TypeReference<Map<String, Object>>() {}));
+    }
+
+    /** Envoie une question IA dédiée, hors des conversations privées. */
+    public void sendAiRequest(String text) {
+        if (text == null || text.isBlank()) return;
+        outgoing.add(Map.of("type", "AI_REQUEST", "text", text.trim()));
     }
 
     // Retourne l'objet Message créé afin que l'expéditeur puisse afficher la carte
@@ -165,6 +177,8 @@ public final class ChatClient implements AutoCloseable {
     public void onContacts(Consumer<List<User>> handler) { contactsHandler = handler; }
     public void onHistory(Consumer<List<Message>> handler) { historyHandler = handler; }
     public void onError(Consumer<String> handler) { errorHandler = handler; }
+    public void onAiResponse(Consumer<String> handler) { aiResponseHandler = handler; }
+    public void onAiError(Consumer<String> handler) { aiErrorHandler = handler; }
 
     /**
      * Demande une déconnexion propre au serveur via le protocole TCP existant.

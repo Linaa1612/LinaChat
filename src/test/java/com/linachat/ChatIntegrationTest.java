@@ -4,7 +4,9 @@ import com.linachat.client.ChatClient;
 import com.linachat.model.Message;
 import com.linachat.model.User;
 import com.linachat.server.ChatServer;
+import com.linachat.service.GeminiClient;
 import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
@@ -19,6 +21,55 @@ import javax.imageio.ImageIO;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ChatIntegrationTest {
+    @Test
+    void geminiRespondsWithConfiguredApiKey() throws Exception {
+        assumeTrue(System.getenv("GEMINI_API_KEY") != null
+                && !System.getenv("GEMINI_API_KEY").isBlank(),
+                "GEMINI_API_KEY non configurée");
+        GeminiClient client = new GeminiClient();
+        String answer = client.respond(java.util.List.of(
+                new GeminiClient.ChatMessage("user", "Réponds simplement: LinaChat Gemini est opérationnel.")));
+        assertNotNull(answer);
+        assertFalse(answer.isBlank());
+    }
+
+    @Test
+    void aiRequestsAreRoutedPrivately() throws Exception {
+        ChatServer server = new ChatServer(0);
+        Thread serverThread = new Thread(() -> {
+            try { server.start(); } catch (Exception ignored) {}
+        });
+        serverThread.start();
+        try {
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+            while (server.localPort() == 0 && System.nanoTime() < deadline) Thread.sleep(10);
+            assertTrue(server.localPort() > 0);
+
+            ChatClient alice = new ChatClient();
+            ChatClient bob = new ChatClient();
+            CountDownLatch aliceError = new CountDownLatch(1);
+            CountDownLatch bobError = new CountDownLatch(1);
+            alice.onAiError(error -> aliceError.countDown());
+            alice.onAiResponse(answer -> aliceError.countDown());
+            bob.onAiError(error -> bobError.countDown());
+            bob.onAiResponse(answer -> bobError.countDown());
+            alice.connect("127.0.0.1", server.localPort(), User.create("Alice IA", "Disponible", null))
+                    .get(3, TimeUnit.SECONDS);
+            bob.connect("127.0.0.1", server.localPort(), User.create("Bob IA", "Disponible", null))
+                    .get(3, TimeUnit.SECONDS);
+
+            alice.sendAiRequest("Bonjour, explique-moi TCP");
+            bob.sendAiRequest("Hello, explain sockets");
+            assertTrue(aliceError.await(3, TimeUnit.SECONDS));
+            assertTrue(bobError.await(3, TimeUnit.SECONDS));
+
+            alice.close();
+            bob.close();
+        } finally {
+            server.close();
+            serverThread.join(1000);
+        }
+    }
     // Ce test demarre un vrai serveur TCP sur un port temporaire,
     // puis verifie qu'un message passe entre deux clients distincts.
     @Test

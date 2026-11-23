@@ -18,6 +18,8 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.Pane;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
 import javafx.stage.FileChooser;
@@ -59,6 +61,12 @@ public final class ChatController {
     @FXML private Label recordingDurationLabel, previewDurationLabel;
     @FXML private Slider previewSlider;
     @FXML private Button previewPlayButton;
+    @FXML private BorderPane chatPane, aiPane;
+    @FXML private VBox aiMessagesBox;
+    @FXML private TextField aiMessageField;
+    @FXML private Button aiSendButton;
+    @FXML private ProgressIndicator aiLoading;
+    @FXML private ScrollPane aiScroll;
 
     private final Map<String, List<Message>> conversations = new ConcurrentHashMap<>();
     private final Map<String, Message> lastMessages = new ConcurrentHashMap<>();
@@ -133,6 +141,25 @@ public final class ChatController {
             if (message.belongsTo(client.user().id(), recipient == null ? "" : recipient)) renderMessage(message);
         }));
         client.onError(error -> Platform.runLater(() -> statusLabel.setText(error)));
+        client.onAiResponse(answer -> Platform.runLater(() -> {
+            aiLoading.setVisible(false);
+            aiLoading.setManaged(false);
+            aiSendButton.setDisable(false);
+            aiMessageField.setDisable(false);
+            addAiBubble(answer, "ai-assistant");
+            statusLabel.setText("Réponse IA reçue.");
+        }));
+        client.onAiError(error -> Platform.runLater(() -> {
+            aiLoading.setVisible(false);
+            aiLoading.setManaged(false);
+            aiSendButton.setDisable(false);
+            aiMessageField.setDisable(false);
+            Label bubble = new Label(error);
+            bubble.getStyleClass().addAll("ai-assistant", "ai-error");
+            aiMessagesBox.getChildren().add(bubble);
+            statusLabel.setText(error);
+            scrollAiToEnd();
+        }));
 
         // Chronometre JavaFX: il ne touche pas au micro ni au fichier.
         recordingTimeline.getKeyFrames().setAll(new KeyFrame(Duration.millis(200), event -> {
@@ -290,6 +317,49 @@ public final class ChatController {
         renderMessage(message);
         messageField.clear();
         client.sendText(recipient, text);
+    }
+
+    // Bascule entre la discussion privée classique et l'assistant IA.
+    // Aucune trame utilisateur privée n'est envoyée dans les requêtes AI_REQUEST.
+    @FXML private void openAiAssistant() {
+        chatPane.setVisible(false);
+        chatPane.setManaged(false);
+        aiPane.setVisible(true);
+        aiPane.setManaged(true);
+        aiMessageField.requestFocus();
+    }
+
+    @FXML private void closeAiAssistant() {
+        aiPane.setVisible(false);
+        aiPane.setManaged(false);
+        chatPane.setVisible(true);
+        chatPane.setManaged(true);
+    }
+
+    /** Envoi asynchrone côté serveur: JavaFX reste réactif pendant la génération. */
+    @FXML private void sendAi() {
+        String text = aiMessageField.getText().trim();
+        if (text.isBlank() || aiSendButton.isDisable()) return;
+        addAiBubble(text, "ai-user");
+        aiMessageField.clear();
+        aiSendButton.setDisable(true);
+        aiMessageField.setDisable(true);
+        aiLoading.setVisible(true);
+        aiLoading.setManaged(true);
+        statusLabel.setText("L'assistant IA réfléchit...");
+        client.sendAiRequest(text);
+    }
+
+    private void addAiBubble(String text, String style) {
+        Label bubble = new Label(text);
+        bubble.getStyleClass().add(style);
+        bubble.setMaxWidth(520);
+        aiMessagesBox.getChildren().add(bubble);
+        scrollAiToEnd();
+    }
+
+    private void scrollAiToEnd() {
+        Platform.runLater(() -> aiScroll.setVvalue(1.0));
     }
 
     // Hna kanchoisiw fichier: les images ont une previsualisation,

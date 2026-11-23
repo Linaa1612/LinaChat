@@ -8,6 +8,7 @@ module com.linachat {
     requires com.fasterxml.jackson.datatype.jsr310;
     // java.desktop fournit les outils Swing et ImageIO utilises pour valider les images.
     requires java.desktop;
+    requires java.net.http;
     exports com.linachat;
     exports com.linachat.controller;
     opens com.linachat.controller to javafx.fxml;
