@@ -1,0 +1,301 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/lina_page_bg"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/lina_green"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="14dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="10dp">
+
+        <ImageView
+            android:id="@+id/profileAvatar"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:contentDescription="Photo de profil"
+            android:scaleType="centerCrop" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/profileName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@android:color/white"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/connectionStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Connecté"
+                android:textColor="#D7EEE9"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/assistantButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:backgroundTint="#20A29A"
+            android:minWidth="0dp"
+            android:text="✨ IA"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:id="@+id/disconnectButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:backgroundTint="@color/lina_teal"
+            android:minWidth="0dp"
+            android:text="Sortir"
+            android:textColor="@android:color/white" />
+    </LinearLayout>
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/lina_green"
+        android:fillViewport="false"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/contactsContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="8dp" />
+    </HorizontalScrollView>
+
+    <TextView
+        android:id="@+id/conversationTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@android:color/white"
+        android:paddingStart="16dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="12dp"
+        android:text="Sélectionnez un contact"
+        android:textColor="@color/lina_text"
+        android:textSize="17sp"
+        android:textStyle="bold" />
+
+    <FrameLayout
+        android:id="@+id/chatPanel"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <ScrollView
+            android:id="@+id/conversationScroll"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/lina_chat_bg"
+            android:fillViewport="true">
+
+            <LinearLayout
+                android:id="@+id/messagesContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp" />
+        </ScrollView>
+
+        <LinearLayout
+            android:id="@+id/assistantPanel"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/lina_chat_bg"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@android:color/white"
+                android:padding="12dp"
+                android:text="Assistant IA · conversation privée"
+                android:textColor="@color/lina_green"
+                android:textStyle="bold" />
+
+            <ScrollView
+                android:id="@+id/assistantScroll"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:fillViewport="true">
+
+                <LinearLayout
+                    android:id="@+id/assistantMessages"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="12dp" />
+            </ScrollView>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@android:color/white"
+                android:orientation="horizontal"
+                android:padding="8dp">
+
+                <EditText
+                    android:id="@+id/assistantInput"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="Posez une question..."
+                    android:inputType="textCapSentences|textMultiLine"
+                    android:maxLines="3" />
+
+                <Button
+                    android:id="@+id/assistantSend"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:backgroundTint="@color/lina_teal"
+                    android:text="Envoyer"
+                    android:textColor="@android:color/white" />
+            </LinearLayout>
+        </LinearLayout>
+    </FrameLayout>
+
+    <LinearLayout
+        android:id="@+id/composerPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@android:color/white"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="6dp">
+
+        <Button
+            android:id="@+id/attachButton"
+            android:layout_width="42dp"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@color/lina_mint"
+            android:minWidth="0dp"
+            android:text="+"
+            android:textColor="@color/lina_green"
+            android:textSize="20sp" />
+
+        <Button
+            android:id="@+id/emojiButton"
+            android:layout_width="42dp"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@color/lina_page_bg"
+            android:minWidth="0dp"
+            android:text="😊"
+            android:textSize="18sp" />
+
+        <EditText
+            android:id="@+id/messageInput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="Écrire un message..."
+            android:inputType="textCapSentences|textMultiLine"
+            android:maxLines="4" />
+
+        <Button
+            android:id="@+id/recordButton"
+            android:layout_width="42dp"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@color/lina_page_bg"
+            android:minWidth="0dp"
+            android:text="🎤"
+            android:textSize="17sp" />
+
+        <Button
+            android:id="@+id/sendButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@color/lina_teal"
+            android:minWidth="0dp"
+            android:text="➤"
+            android:textColor="@android:color/white"
+            android:textSize="18sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/recordingPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@android:color/white"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/recordingStatus"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="● Enregistrement"
+            android:textColor="@color/lina_error"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/stopRecordingButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@color/lina_teal"
+            android:text="Terminer"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:id="@+id/cancelRecordingButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Annuler" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/audioPreviewPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@android:color/white"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:visibility="gone">
+
+        <Button
+            android:id="@+id/previewPlayButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="▶ Écouter" />
+
+        <Button
+            android:id="@+id/sendAudioButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@color/lina_teal"
+            android:text="Envoyer"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:id="@+id/deleteAudioButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Supprimer" />
+    </LinearLayout>
+</LinearLayout>

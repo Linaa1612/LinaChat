@@ -1,0 +1,11 @@
+<resources>
+    <color name="lina_green">#075E54</color>
+    <color name="lina_teal">#128C7E</color>
+    <color name="lina_mint">#D7EEE9</color>
+    <color name="lina_chat_bg">#EFEAE2</color>
+    <color name="lina_page_bg">#F0F2F5</color>
+    <color name="lina_text">#202C33</color>
+    <color name="lina_muted">#667781</color>
+    <color name="lina_outgoing">#DCF8C6</color>
+    <color name="lina_error">#B3261E</color>
+</resources>
