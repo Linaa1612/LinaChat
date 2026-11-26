@@ -11,6 +11,7 @@ public record Message(String id, String type, String sender, String recipient, S
     public static Message text(String from, String to, String body) {
         return new Message(UUID.randomUUID().toString(), "MESSAGE", from, to, body, null, 0, null, Instant.now(), 0);
     }
+    //uuid (universally unique id) identifiant unique genere automatiquement pou identifier un element(message, produit...)
     public static Message file(String from, String to, String name, byte[] bytes) {
         return new Message(UUID.randomUUID().toString(), "FILE", from, to, null, name, bytes.length,
                 java.util.Base64.getEncoder().encodeToString(bytes), Instant.now(), 0);

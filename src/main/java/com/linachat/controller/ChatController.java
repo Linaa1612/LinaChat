@@ -102,7 +102,8 @@ public final class ChatController {
         setAvatar(profileAvatar, me.avatarBase64(), 36);
         usersList.setCellFactory(view -> new ListCell<>() {
             private final ImageView avatar = new ImageView();
-            @Override protected void updateItem(User user, boolean empty) {
+            @Override
+            protected void updateItem(User user, boolean empty) {
                 super.updateItem(user, empty);
                 if (empty || user == null) {
                     setText(null);
