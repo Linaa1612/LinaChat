@@ -2,6 +2,7 @@ package com.linachat.android;
 
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -22,6 +23,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /** Client TCP natif : trames compatibles avec JsonCodec côté Desktop et serveur. */
 final class ProtocolClient implements AutoCloseable {
+    private static final String TAG = "LinaChatTCP";
+
     interface Listener {
         void onContacts(List<ChatUser> users);
         void onHistory(List<ChatMessage> messages);
@@ -55,29 +58,47 @@ final class ProtocolClient implements AutoCloseable {
 
     void connect(String host, int port, ChatUser profile) throws Exception {
         Socket connected = new Socket();
-        connected.connect(new InetSocketAddress(host, port), 6000);
-        connected.setTcpNoDelay(true);
         socket = connected;
-        writerThread = new Thread(this::writeLoop, "linachat-writer");
-        readerThread = new Thread(this::readLoop, "linachat-reader");
-        writerThread.setDaemon(true);
-        readerThread.setDaemon(true);
-        writerThread.start();
-        readerThread.start();
+        String stage = "socket-created";
+        Log.i(TAG, "TCP target=" + host + ":" + port + ", timeoutMs=6000, thread="
+                + Thread.currentThread().getName());
+        try {
+            stage = "tcp-connect";
+            Log.i(TAG, "Connecting to " + host + ":" + port);
+            connected.connect(new InetSocketAddress(host, port), 6000);
+            Log.i(TAG, "TCP connected: remote=" + connected.getInetAddress().getHostAddress()
+                    + ":" + connected.getPort() + ", local=" + connected.getLocalAddress().getHostAddress()
+                    + ":" + connected.getLocalPort());
 
-        JSONObject frame = new JSONObject();
-        put(frame, "type", "PROFILE");
-        put(frame, "user", profile.toJson());
-        send(frame);
+            connected.setTcpNoDelay(true);
+            writerThread = new Thread(this::writeLoop, "linachat-writer");
+            readerThread = new Thread(this::readLoop, "linachat-reader");
+            writerThread.setDaemon(true);
+            readerThread.setDaemon(true);
+            writerThread.start();
+            readerThread.start();
 
-        if (!profileAccepted.await(6, TimeUnit.SECONDS)) {
+            stage = "send-profile";
+            JSONObject frame = new JSONObject();
+            put(frame, "type", "PROFILE");
+            put(frame, "user", profile.toJson());
+            send(frame);
+
+            stage = "await-profile-response";
+            if (!profileAccepted.await(6, TimeUnit.SECONDS)) {
+                throw new IOException("Le serveur n'a pas confirmé le profil après 6000 ms.");
+            }
+            String error = profileError.get();
+            if (error != null) {
+                throw new IOException("Le serveur a refusé le profil : " + error);
+            }
+            Log.i(TAG, "Server accepted profile for " + host + ":" + port);
+        } catch (Exception error) {
+            Log.e(TAG, "Connection failed at stage=" + stage + ", target=" + host + ":" + port
+                    + ", socketConnected=" + connected.isConnected()
+                    + ", socketClosed=" + connected.isClosed(), error);
             close();
-            throw new IOException("Le serveur n'a pas confirmé le profil.");
-        }
-        String error = profileError.get();
-        if (error != null) {
-            close();
-            throw new IOException(error);
+            throw error;
         }
     }
 
@@ -91,7 +112,7 @@ final class ProtocolClient implements AutoCloseable {
                 output.flush();
             }
         } catch (Exception error) {
-            if (!closed) connectionFailed("Connexion interrompue pendant l'envoi.");
+            if (!closed) connectionFailed("Connexion interrompue pendant l'envoi.", error);
         }
     }
 
@@ -108,9 +129,9 @@ final class ProtocolClient implements AutoCloseable {
                 handle(new JSONObject(new String(bytes, StandardCharsets.UTF_8)));
             }
         } catch (EOFException error) {
-            if (!closed) connectionFailed("Le serveur a fermé la connexion.");
+            if (!closed) connectionFailed("Le serveur a fermé la connexion.", error);
         } catch (Exception error) {
-            if (!closed) connectionFailed("Connexion interrompue ou trame serveur invalide.");
+            if (!closed) connectionFailed("Connexion interrompue ou trame serveur invalide.", error);
         }
     }
 
@@ -204,7 +225,8 @@ final class ProtocolClient implements AutoCloseable {
         if (current != null) mainHandler.post(() -> current.onError(error));
     }
 
-    private void connectionFailed(String error) {
+    private void connectionFailed(String error, Exception cause) {
+        Log.e(TAG, error, cause);
         if (profileAccepted.getCount() > 0) profileError.set(error);
         profileAccepted.countDown();
         reportError(error);

@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Base64;
+import android.util.Log;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -18,6 +19,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class LoginActivity extends Activity {
+    private static final String TAG = "LinaChatLogin";
     private static final int PICK_AVATAR = 11;
     private static final long MAX_AVATAR_BYTES = 5L * 1024 * 1024;
     private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
@@ -139,9 +141,13 @@ public final class LoginActivity extends Activity {
         final int serverPort = port;
         final ChatUser profile = ChatUser.create(username, avatarBase64);
 
+        Log.i(TAG, "Login requested: host=" + host + ", port=" + serverPort
+                + ", thread=" + Thread.currentThread().getName());
         networkExecutor.execute(() -> {
             ProtocolClient client = new ProtocolClient(new EmptyListener());
             try {
+                Log.i(TAG, "Starting TCP connection: host=" + host + ", port=" + serverPort
+                        + ", thread=" + Thread.currentThread().getName());
                 client.connect(host, serverPort, profile);
                 if (activityDestroyed) {
                     client.disconnect();
@@ -165,19 +171,35 @@ public final class LoginActivity extends Activity {
                     finish();
                 });
             } catch (Exception error) {
+                Log.e(TAG, "Login connection failed: host=" + host + ", port=" + serverPort
+                        + ", thread=" + Thread.currentThread().getName(), error);
                 client.close();
-                String message = error.getMessage();
+                String message = describeException(error);
                 if (!activityDestroyed) {
                     runOnUiThread(() -> {
                         connecting = false;
                         connectButton.setEnabled(true);
-                        showError(message == null || message.trim().isEmpty()
-                                ? "Serveur inaccessible. Vérifiez l'adresse, le port et le réseau."
-                                : "Connexion impossible : " + message);
+                        showError("Connexion impossible vers " + host + ":" + serverPort
+                                + "\n" + message);
                     });
                 }
             }
         });
+    }
+
+    private String describeException(Throwable error) {
+        StringBuilder details = new StringBuilder();
+        Throwable current = error;
+        while (current != null) {
+            if (details.length() > 0) details.append("\nCause : ");
+            details.append(current.getClass().getSimpleName());
+            String message = current.getMessage();
+            if (message != null && !message.trim().isEmpty()) {
+                details.append(": ").append(message);
+            }
+            current = current.getCause();
+        }
+        return details.toString();
     }
 
     private boolean isValidIpAddress(String value) {
